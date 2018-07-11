@@ -25,15 +25,16 @@ setup(
     author_email='agould@ucop.edu',
     license='MIT',
     classifiers=[
-        'Development Status :: 4 - Beta',
+        ,Development Status :: 1 - Planninga',
         'Intended Audience :: Developers',
         'Intended Audience :: System Administrators',
-        'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
         'Programming Language :: Python :: 3.6',
     ],
     install_requires=[
         'botocore',
         'boto3',
+        'awscli',
         'PyYAML',
     ],
     packages=find_packages(
