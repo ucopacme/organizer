@@ -1,24 +1,42 @@
 Getting Started with OrgCrawler
 ===============================
 
-A toolset for managing AWS resources across an organization
+A python library for managing resources across all accounts in an AWS Organization.
+
+OrgCrawler package exports two primary classes:
+
+``orgcrawler.orgs.Org``
+  provides a data model and methods for querying AWS Organizations resources:
+
+  - accounts
+  - organizational units
+
+``orgcrawler.crawlers.Crawler``
+  provides a framework for executing user defined python code in all accounts and regions or a subset thereof. 
+
+
+OrgCrawler also contains two console scripts: ``orgquery`` and ``orgcrawler``.
+These attempt to provide a generic interface for running organization queries
+and custom crawler functions from the commandline.
+
 
 
 Installation
 ------------
 
-orgcrawler is not yet up on pypi.  Install it directly from github::
+::
 
-  pip install https://github.com/ucopacme/orgcrawler/archive/master.zip
+  pip install orgcrawler
 
 Currently orgcrawler only supports python 3.6.
+
 
 
 The Org object
 --------------
 
-The orgcrawler.orgs.Org class provides a data model and methods for querying AWS
-organizations resources.
+Usage
+*****
 
 Create an orgcrawler.orgs.Org instance::
 
@@ -28,7 +46,6 @@ Create an orgcrawler.orgs.Org instance::
 Load your organization's account and organizational unit resources into your instance::
 
   my_org.load()
-
  
 Query your organization's account and organizational unit resources::
 
@@ -36,7 +53,23 @@ Query your organization's account and organizational unit resources::
   all_org_units = my_org.list_org_units()
   test_accounts = my_org.list_accounts_in_ou('testing')
 
+
+Details
+*******
+
+A newly initialized Org object only contains master account information.
+
+The ``load()`` method makes boto3 client calls to the master account to
+populate the Org object's Account and OrganizationalUnit resource data.
+
+The `loaded` Org object is cached to local disk to improve the performance of
+subsequent ``load()`` calls.  After an hour, the cached Org object is timed
+out.  It contains no AWS account credentials.
    
+Org object query methods can return listings of accounts based on OrganizationalUnit membership.
+See the API docs for a full listing of query methods
+
+
 The Crawler object
 ------------------
 
