@@ -1,5 +1,17 @@
-import boto3
 import re
+import boto3
+from botocore.exceptions import ClientError
+
+
+def status_config_svcs(region, account):    # pragma: no cover
+    client = boto3.client('config', region_name=region, **account.credentials)
+    response = client.describe_configuration_recorder_status()
+    response.pop('ResponseMetadata')
+    if response['ConfigurationRecordersStatus']:
+        state = dict(recording=True)
+    else:
+        state = dict(recording=False)
+    return dict(ConfigurationRecordersStatus=state)
 
 
 def iam_list_users(region, account):
@@ -27,12 +39,52 @@ def get_account_aliases(region, account):
 
 
 def create_bucket(region, account, bucket_prefix):
+    '''
+    usage example:
+      orgcrawler -r awsauth/OrgAdmin orgcrawler.payloads.create_bucket orgcrawler-testbucket
+    '''
     client = boto3.client('s3', region_name=region, **account.credentials)
-    response = client.create_bucket(
-        Bucket=bucket_prefix + '-' + account.id,
-        CreateBucketConfiguration={'LocationConstraint': region},
-    )
-    return response
+    bucket_name = '-'.join([bucket_prefix, account.id, region])
+    bucket_attributes = {'Bucket': bucket_name}
+    if not region == 'us-east-1':
+        bucket_attributes['CreateBucketConfiguration'] = {'LocationConstraint': region}
+    try:
+        response = client.create_bucket(**bucket_attributes)
+        operation_outputs = dict(
+            BucketName=bucket_name,
+            Succeeded=True,
+            HTTPStatusCode=response['ResponseMetadata']['HTTPStatusCode']
+        )
+    except ClientError as e:
+        operation_outputs = dict(
+            BucketName=bucket_name,
+            Succeeded=False,
+            ErrorCode=e.response['Error']['Code']
+        )
+    return dict(CreateBucketOperation=operation_outputs)
+
+
+def delete_bucket(region, account, bucket_prefix):
+    '''
+    usage example:
+      orgcrawler -r awsauth/OrgAdmin orgcrawler.payloads.delete_bucket orgcrawler-testbucket
+    '''
+    client = boto3.client('s3', region_name=region, **account.credentials)
+    bucket_name = '-'.join([bucket_prefix, account.id, region])
+    try:
+        response = client.delete_bucket(Bucket=bucket_name)
+        operation_outputs = dict(
+            BucketName=bucket_name,
+            Succeeded=True,
+            HTTPStatusCode=response['ResponseMetadata']['HTTPStatusCode']
+        )
+    except ClientError as e:
+        operation_outputs = dict(
+            BucketName=bucket_name,
+            Succeeded=False,
+            ErrorCode=e.response['Error']['Code']
+        )
+    return dict(DeleteBucketOperation=operation_outputs)
 
 
 def list_buckets(region, account):
@@ -62,9 +114,20 @@ def config_resource_counts(region, account):        # pragma: no cover
 
 
 def config_describe_rules(region, account):     # pragma: no cover
+    '''
+    usage example:
+
+      orgcrawler -r OrganizationAccountAccessRole orgcrawler.payloads.config_describe_rules
+
+      orgcrawler -r OrganizationAccountAccessRole --regions us-west-2 orgcrawler.payloads.config_describe_rules | jq -r '.[] | .Account, (.Regions[] | ."us-west-2".ConfigRules[].ConfigRuleName), ""' | tee config_rules_in_accounts.us-west-2
+    '''
     client = boto3.client('config', region_name=region, **account.credentials)
     response = client.describe_config_rules()
-    return dict(ConfigRules=response['ConfigRules'])
+    rules = response['ConfigRules']
+    while 'NextToken' in response:
+        response = client.describe_config_rules(NextToken=response['NextToken'])
+        rules += response['ConfigRules']
+    return dict(ConfigRules=rules)
 
 
 def config_describe_recorder_status(region, account):
