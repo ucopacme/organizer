@@ -10,6 +10,7 @@ OrgCrawler package exports two primary classes:
 
   - accounts
   - organizational units
+  - service control policies
 
 ``orgcrawler.crawlers.Crawler``
   provides a framework for executing user defined python code in all accounts and regions or a subset thereof. 
@@ -31,8 +32,6 @@ Installation
 ::
 
   pip install orgcrawler
-
-
 
 
 The Org object
@@ -92,34 +91,72 @@ Load AWS credentials for each account into your Crawler instance::
 
   my_crawler.load_account_credentials()
 
-Run your custom python functions in all account/regions configured in your Crawler::
 
-  import crawler_functions
-  all_buckets = my_crawler.execute(crawler_functions.list_s3_buckets)
-  all_sg = my_crawler.execute(crawler_functions.list_ec2_securety_groups)
-
-
-Simple Setup
-------------
+Shortcut Crawler Setup
+----------------------
 
 You can generate an Crawler object and associated Org object with a single utility function::
 
   from orgcrawler.cli.utils import setup_crawler
   my_crawler = crawler_setup('MyMasterAccountRole')
 
+or::
 
-Requirments for python functions called with Crawler.execute()
---------------------------------------------------------------
+  crawler_params = dict(
+      access_role='myAccountAdminRole',
+      accounts=test_accounts,
+      regions=['us-west-1', 'us-east-1'],
+  )
+  my_crawler = crawler_setup('MyMasterAccountRole', **crawler_params)
+
+
+Running Crawler Payload Functions
+---------------------------------
+
+Run your custom python code in all account/regions configured in your Crawler
+by calling the ``execute()`` method of your Crawler instance.  Supply your
+`payload` function and any function arguments as parameters::
+
+  import my_payloads
+  all_buckets = my_crawler.execute(my_payloads.list_s3_buckets)
+  my_crawler.execute(my_payloads.create_bucket, 'my_bucket')
+
+
+Requirments for Payload Functions
+---------------------------------
 
 The Crawler.execute method calls your custom function with the following
 parameters: ``region, account, *args``, where ``region`` is a string,
 ``account`` is orgcrawler.orgs.OrgAccount instance, and ``args`` is a list of
 positional parameters to pass to your function.  Your function must create its
-own boto3 client for whatever services it will use::
+own boto3 client for whatever services it will use.
+
+Examples::
 
   def list_s3_buckets(region, account):
       client = boto3.client('s3', region_name=region, **account.credentials)
       response = client.list_buckets()
+
+  def create_bucket(region, account, bucket_prefix):
+      client = boto3.client('s3', region_name=region, **account.credentials)
+      bucket_name = '-'.join([bucket_prefix, account.id, region])
+      bucket_attributes = {'Bucket': bucket_name}
+      if not region == 'us-east-1':
+          bucket_attributes['CreateBucketConfiguration'] = {'LocationConstraint': region}
+      response = client.create_bucket(**bucket_attributes)
+
+
+Running payloads which call global AWS services
+-----------------------------------------------
+
+When calling a payload function which accesses a global service, set the
+``regions`` attribute of your Crawler instance either to ``us-east-1`` or to
+the keywork ``GLOBAL``.  Otherwise, Crawler.execute() will travers every AWS
+region and redandantly run your payload::
+
+  my_crawler = crawler_setup('MyMasterAccountRole')
+  my_crawler.update_regions('GLOBAL')
+  my_crawler.execute(iam_list_users)
 
 
 OrgCrawler CLI Scripts
@@ -127,8 +164,8 @@ OrgCrawler CLI Scripts
 
 This package contains two console scripts: ``orgquery`` and ``orgcrawler``.
 These attempt to provide a generic interface for running organization queries
-and custom crawler functions.  They provide concrete examples
-for how to build orgcrawler applications.
+and custom crawler functions.  They provide concrete examples for how to build
+orgcrawler applications.
 
 See ``orgcrawler/cli/{orgquery|orgcrawler}.py`` for code.
 
@@ -159,4 +196,11 @@ orgcrawler
   orgcrawler -r OrgMasterRole --account-role S3Admin orgcrawler.payloads.create_bucket orgcrawler-testbucket
   orgcrawler -r OrgMasterRole --service codecommit --payload-file ~/my_payloads.py list_cc_repositories
   orgcrawler -r OrgMasterRole --accounts app-test,app-prod --regions us-east-1,us-west-2 orgcrawler.payloads.config_describe_rules
+
+When running a payload function which calls a global AWS service such as IAM or
+Route53, use the ``--service`` option.  This will set the ``regions`` attibute
+of your crawler object to the default region ``us-east-1``::
+
+  orgcrawler -r OrgMasterRole --service iam orgcrawler.payloads.iam_list_users
+  orgcrawler -r OrgMasterRole --service route53 orgcrawler.payloads.list_hosted_zones
 

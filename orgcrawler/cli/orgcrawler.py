@@ -34,7 +34,7 @@ def print_version(ctx, param, value):
 @click.option('--regions',
     help='Comma separated list of AWS regions to crawl. Default is all regions.')
 @click.option('--service',
-    help='The AWS service used to select region list.  Especially useful when running IAM functions.')
+    help='The AWS service used to select region list.  Especially useful for payloads which call global services.')
 @click.option('--payload-file', '-f',
     type=click.Path(exists=True),
     help='Path to file containing payload function.')
