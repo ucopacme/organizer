@@ -3,15 +3,18 @@ Getting Started with OrgCrawler
 
 A toolset for managing AWS resources across an organization
 
+See full documentation as https://orgcrawler.readthedocs.io/en/latest/
+
+Currently orgcrawler is tested in python 3.6, 3.7.
+
 
 Installation
 ------------
 
-orgcrawler is not yet up on pypi.  Install it directly from github::
+::
 
-  pip install https://github.com/ucopacme/orgcrawler/archive/master.zip
+  pip install orgcrawler
 
-Currently orgcrawler only supports python 3.6.
 
 
 The Org object
@@ -63,6 +66,15 @@ Run your custom python functions in all account/regions configured in your Crawl
   all_sg = my_crawler.execute(crawler_functions.list_ec2_securety_groups)
 
 
+Simple Setup
+------------
+
+You can generate an Crawler object and associated Org object with a single utility function::
+
+  from orgcrawler.cli.utils import setup_crawler
+  my_crawler = crawler_setup('MyMasterAccountRole')
+
+
 Requirments for python functions called with Crawler.execute()
 --------------------------------------------------------------
 
@@ -82,9 +94,36 @@ OrgCrawler CLI Scripts
 
 This package contains two console scripts: ``orgquery`` and ``orgcrawler``.
 These attempt to provide a generic interface for running organization queries
-and custom crawler functions.  At the very least they provide concrete examples
+and custom crawler functions.  They provide concrete examples
 for how to build orgcrawler applications.
 
 See ``orgcrawler/cli/{orgquery|orgcrawler}.py`` for code.
 
 Run with the ``--help`` option for usage.  
+
+
+CLI Examples
+------------
+
+orgquery
+********
+
+::
+
+  orgquery -h
+  orgquery -r OrgMasterRole list_accounts_by_name
+  orgquery -r OrgMasterRole -f yaml get_account_id_by_name webapps
+  orgquery -r OrgMasterRole get_targets_for_policy LimitAWSRegions |  jq -re .[].Name
+
+
+orgcrawler
+**********
+
+::
+
+  orgcrawler -h
+  orgcrawler -r OrgMasterRole orgcrawler.payloads.list_buckets
+  orgcrawler -r OrgMasterRole --account-role S3Admin orgcrawler.payloads.create_bucket orgcrawler-testbucket
+  orgcrawler -r OrgMasterRole --service codecommit --payload-file ~/my_payloads.py list_cc_repositories
+  orgcrawler -r OrgMasterRole --accounts app-test,app-prod --regions us-east-1,us-west-2 orgcrawler.payloads.config_describe_rules
+

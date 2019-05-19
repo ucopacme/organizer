@@ -49,10 +49,25 @@ def print_version(ctx, param, value):
     help='Display version info and exit.')
 def main(master_role, account_role, regions, accounts,
         service, payload_file, payload, payload_arg):
+    """
+Arguments:
 
-    ''' Where 'PAYLOAD' is name of the payload function to run in each account,
-    and 'PAYLOAD_ARG' is, you guessed it, any payload function argument(s).
-    Orgcrawler attempts to resolve payload function name from $PYTHON_PATH '''
+    \b
+    PAYLOAD       Name of the payload function to run in each account
+    PAYLOAD_ARG   The payload function argument(s) if any
+
+Orgcrawler attempts to resolve payload function name from $PYTHON_PATH
+
+Examples:
+
+    \b
+    orgcrawler -h
+    orgcrawler -r OrgMasterRole orgcrawler.payloads.list_buckets
+    orgcrawler -r OrgMasterRole --account-role S3Admin orgcrawler.payloads.create_bucket orgcrawler-testbucket
+    orgcrawler -r OrgMasterRole --payload-file ~/my_payloads.py list_cc_repositories
+    orgcrawler -r OrgMasterRole --service iam orgcrawler.payloads.get_account_aliases
+    orgcrawler -r OrgMasterRole --accounts app-test,app-prod --regions us-east-1,us-west-2 orgcrawler.payloads.config_describe_rules
+    """
 
     crawler_args = dict()
     if accounts:
