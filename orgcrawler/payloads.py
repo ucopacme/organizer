@@ -24,6 +24,31 @@ def iam_list_users(region, account):
     return dict(Users=collector)
 
 
+def iam_list_user_loginprofiles(region, account):  # pragma: no cover
+    '''
+    orgcrawler -r awsauth/OrgAdmin --service iam orgcrawler.payloads.iam_list_user_loginprofiles \
+    --accounts ait-poc,ait-training,big-test,eat-poc,eoc-poc,finapps-poc,iso-poc,ppers-poc,syseng-poc,seg-peoplesoftpoc,ucop-itssandbox-eas,ucpathops-poc,was-poc \
+    | tee ~/tmp/login_profiles.json
+    '''
+    client = boto3.client('iam', region_name=region, **account.credentials)
+    response = client.list_users()
+    users = response['Users']
+    if 'IsTruncated' in response and response['IsTruncated']:   # pragma: no cover
+        response = client.list_users(Marker=response['Marker'])
+        users += response['Users']
+    login_profiles = []
+    for user in users:
+        try:
+            response = client.get_login_profile(UserName=user['UserName'])
+            profile = response['LoginProfile']
+            profile['PasswordLastUsed'] = user.get('PasswordLastUsed', "")
+            login_profiles.append(profile)
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'NoSuchEntity':
+                continue
+    return dict(LoginProfiles=login_profiles)
+
+
 def set_account_alias(region, account, alias=None):
     client = boto3.client('iam', region_name=region, **account.credentials)
     if alias is None:
