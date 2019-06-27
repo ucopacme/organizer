@@ -63,6 +63,13 @@ class Crawler(object):
         self.regions = regions
         self.validate_regions()
 
+    def get_accounts(self):
+        return self.accounts
+
+    def update_accounts(self, accounts):
+        self.accounts = accounts
+        self.validate_accounts()
+
     def load_account_credentials(self):
         def get_credentials_for_account(account, crawler):
             try:
