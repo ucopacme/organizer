@@ -1,26 +1,44 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-import io
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 
-here = os.path.abspath(os.path.dirname(__file__))
 
-# gather the package's long description from the README
-with io.open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
-    long_description = '\n' + f.read()
+LONGDESC = '''
+Getting Started with OrgCrawler
+===============================
 
-# load the package's __init__.py module as a dictionary.
-about = {}
-with open(os.path.join(here, 'orgcrawler/__init__.py')) as f:
-    exec(f.read(), about)
+A python library for managing resources across all accounts in an AWS Organization.
+
+OrgCrawler package exports two primary classes:
+
+``orgcrawler.orgs.Org``
+  provides a data model and methods for querying AWS Organizations resources:
+
+  - accounts
+  - organizational units
+  - service control policies
+
+``orgcrawler.crawlers.Crawler``
+  provides a framework for executing user defined python code in all accounts and regions or a subset thereof.
+
+
+OrgCrawler also contains two console scripts: ``orgquery`` and ``orgcrawler``.
+These attempt to provide a generic interface for running organization queries
+and custom crawler functions from the commandline.
+
+
+See full documentation as https://orgcrawler.readthedocs.io/en/latest/
+
+Currently orgcrawler is tested in python 3.6, 3.7.
+
+'''
+
 
 setup(
     name='orgcrawler',
-    version=about['__version__'],
     description='Tools for working with AWS Organizations',
-    long_description=long_description,
+    long_description='Tools for working with AWS Organizations',
     long_description_content_type='text/x-rst',
     url='https://github.com/ucopacme/orgcrawler',
     keywords='aws organizations boto3',
@@ -41,7 +59,9 @@ setup(
         'PyYAML',
         'click',
     ],
-    packages=find_packages(exclude=['dist', 'test']),
+    setup_requires=['setuptools_scm'],
+    use_scm_version=True,
+    packages=find_namespace_packages(include=['orgcrawler.*']),
     include_package_data=True,
     zip_safe=False,
     entry_points={

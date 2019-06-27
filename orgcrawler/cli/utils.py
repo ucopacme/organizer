@@ -1,8 +1,21 @@
 import os
 import sys
 import importlib
+
+import click
+import setuptools_scm
+
 from orgcrawler import crawlers, orgs
 from orgcrawler.utils import get_master_account_id
+
+
+def print_version(click_context, param, value):
+    '''Click callback function to display package version'''
+    if not value or click_context.resilient_parsing:
+        return
+    package_version = setuptools_scm.get_version(root='../..', relative_to=__file__)
+    click.echo(package_version)
+    click_context.exit()
 
 
 def get_payload_function_from_string(payload_name):
