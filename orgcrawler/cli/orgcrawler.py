@@ -2,7 +2,6 @@
 
 import click
 
-import orgcrawler
 from orgcrawler.utils import jsonfmt, regions_for_service
 from orgcrawler.cli.utils import (
     setup_crawler,
