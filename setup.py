@@ -66,7 +66,6 @@ setup(
         'click',
     ],
     packages=find_namespace_packages(include=['orgcrawler.*']),
-    include_package_data=True,
     zip_safe=False,
     entry_points={
         'console_scripts': [
