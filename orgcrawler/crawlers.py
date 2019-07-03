@@ -106,7 +106,7 @@ class Crawler(object):
         if self.exc_info:   # pragma: no cover
             raise self.exc_info[1].with_traceback(self.exc_info[2])
 
-    def execute(self, payload, args=list(), kwargs=dict()):
+    def execute(self, payload, *args, **kwargs):
 
         def run_payload_in_account(account_region_map, execution, args, kwargs):
             region = account_region_map['region']
