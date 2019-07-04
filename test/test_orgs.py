@@ -13,19 +13,11 @@ import moto
 from moto import mock_organizations, mock_sts
 
 from orgcrawler import utils, orgs, crawlers
-
 from orgcrawler.mock import (
     MockOrganization,
     ORG_ACCESS_ROLE,
     MASTER_ACCOUNT_ID,
 )
-
-
-def clean_up(org=None):
-    if org is None:
-        org = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
-    if os.path.isdir(org._cache_dir):
-        shutil.rmtree(org._cache_dir)
 
 
 @mock_organizations
@@ -169,7 +161,11 @@ def test_org_cache():
     org._save_cached_org_to_file()
     assert os.path.exists(org._cache_file)
 
-    os.remove(org._cache_file)
+    org.clear_cache()
+    assert not os.path.exists(org._cache_file)
+    assert not os.path.exists(org._cache_dir)
+
+    #os.remove(org._cache_file)
     with pytest.raises(RuntimeError) as e:
         loaded_dump = org._get_cached_org_from_file()
     assert str(e.value) == 'Cache file not found'
@@ -189,7 +185,6 @@ def test_org_cache():
     org_from_cache = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
     org_from_cache._load_org_dump(loaded_dump)
     assert org.dump() == org_from_cache.dump()
-    clean_up()
 
 
 @mock_sts
@@ -198,7 +193,7 @@ def test_load():
     mock_org = MockOrganization()
     mock_org.simple()
     org = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
-    clean_up()
+    org.clear_cache()
     assert not os.path.exists(org._cache_dir)
     assert not os.path.exists(org._cache_file)
     org.load()
@@ -228,7 +223,7 @@ def test_load():
     org_from_cache = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
     org_from_cache.load()
     assert org.dump() == org_from_cache.dump()
-    clean_up()
+    org.clear_cache()
 
 @mock_sts
 @mock_organizations
@@ -250,7 +245,7 @@ def test_dump_accounts():
         assert account['email'] == account['name'] + '@example.com'
         assert len(account['aliases']) == 0
         assert len(account['credentials']) == 0
-    clean_up()
+    org.clear_cache()
 
  
 @mock_sts
@@ -270,7 +265,7 @@ def test_list_accounts_by_name_or_id():
     assert len(response) == 3
     for account_id in response:
         assert re.compile(r'[0-9]{12}').match(account_id)
-    clean_up()
+    org.clear_cache()
 
 
 @mock_sts
@@ -292,7 +287,7 @@ def test_dump_org_units():
             ou['parent_id'] == org.root_id
             or ou['parent_id'].startswith(org.root_id.replace('r-', 'ou-'))
         )
-    clean_up()
+    org.clear_cache()
 
  
 @mock_sts
@@ -311,7 +306,7 @@ def test_list_org_units_by_name_or_id():
     assert len(response) == 6
     for ou_id in response:
         assert ou_id.startswith('ou-')
-    clean_up()
+    org.clear_cache()
 
 
 @mock_sts
@@ -333,7 +328,7 @@ def test_org_dump():
     json_dump = org.dump_json()
     assert isinstance(json_dump, str)
     assert json.loads(json_dump) == dump
-    clean_up()
+    org.clear_cache()
 
  
 @mock_sts
@@ -347,7 +342,7 @@ def test_get_account_id_by_name():
     assert account_id == next((
         a['Id'] for a in accounts_by_boto_client if a['Name'] == 'account01'
     ), None)
-    clean_up()
+    org.clear_cache()
 
  
 @mock_sts
@@ -362,7 +357,7 @@ def test_get_account_name_by_id():
     assert account_name == next((
         a['Name'] for a in accounts_by_boto_client if a['Id'] == account_id
     ), None)
-    clean_up()
+    org.clear_cache()
 
  
 @mock_sts
@@ -376,7 +371,7 @@ def test_get_account():
     assert org.get_account(account) == account
     assert account.name == 'account01'
     assert account.id == org.get_account_id_by_name('account01')
-    clean_up()
+    org.clear_cache()
 
  
 @mock_sts
@@ -390,7 +385,7 @@ def test_get_org_unit_id():
     assert ou.id == org.get_org_unit_id(ou.id)
     assert ou.id == org.get_org_unit_id(ou.name)
     assert org.get_org_unit_id('Blee') is None
-    clean_up()
+    org.clear_cache()
 
  
 @mock_sts
@@ -417,7 +412,7 @@ def test_list_accounts_in_ou():
             a['Id'] for a in accounts_by_boto_client
             if a['Name'] == account.name
         ), None)
-    clean_up()
+    org.clear_cache()
 
  
 @mock_sts
@@ -444,7 +439,7 @@ def test_list_org_units_in_ou():
             ou['Id'] for ou in ou_by_boto_client
             if ou['Name'] == org_unit.name
         ), None)
-    clean_up()
+    org.clear_cache()
 
  
 @mock_sts
@@ -460,7 +455,7 @@ def test_list_org_units_in_ou_recursive():
         assert ou.id.startswith('ou-')
     response = org.list_org_units_in_ou_recursive('ou02')
     assert len(response) == 2
-    clean_up()
+    org.clear_cache()
 
 
 @mock_sts
@@ -479,7 +474,7 @@ def test_list_accounts_in_ou_recursive():
     assert len(response) == 5
     response = org.list_accounts_in_ou_recursive('ou02-1')
     assert len(response) == 1
-    clean_up()
+    org.clear_cache()
 
 
 @mock_sts
@@ -493,7 +488,7 @@ def test_list_policies_by_name():
     assert len(response) == 6
     for name in response:
         assert name.startswith('policy')
-    clean_up()
+    org.clear_cache()
 
 
 @mock_sts
@@ -507,7 +502,7 @@ def test_list_policies_by_id():
     assert len(response) == 6
     for policy_id in response:
         assert re.compile(r'p-[a-z0-9]{8}').match(policy_id)
-    clean_up()
+    org.clear_cache()
 
 
 @mock_sts
@@ -526,7 +521,7 @@ def test_get_policy():
     assert policy.id == policy_id
     assert org.get_policy('BLEE') is None
     assert org.get_policy(org) is None
-    clean_up()
+    org.clear_cache()
 
 
 @mock_sts
@@ -539,7 +534,7 @@ def test_get_policy_id_by_name():
     assert isinstance(policy_id, str)
     assert policy_id == org.get_policy('policy01').id
     assert org.get_policy_id_by_name('BLEE') is None
-    clean_up()
+    org.clear_cache()
 
 
 @mock_sts
@@ -548,13 +543,12 @@ def test_get_policy_name_by_id():
     MockOrganization().complex()
     org = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
     org.load()
-    #policy_id = next((p.id for p in org.policies if p.name == 'policy01'))
     policy_id = org.get_policy_id_by_name('policy01')
     response = org.get_policy_name_by_id(policy_id)
     assert isinstance(response, str)
     assert response == 'policy01'
     assert org.get_policy_name_by_id('BLEE') is None
-    clean_up()
+    org.clear_cache()
 
 
 @mock_sts
@@ -572,7 +566,7 @@ def test_get_policy_id():
     policy = org.get_policy('policy01')
     assert policy_id == org.get_policy_id(policy)
     assert org.get_policy_id('Blee') is None
-    clean_up()
+    org.clear_cache()
 
 
 #@mock_sts
@@ -592,7 +586,7 @@ def test_get_policy_id():
 #    assert policy_doc == org.get_policy_document(org.get_policy('policy01'))
 #    assert policy_doc == org.get_policy_document(org.get_policy_id('policy01'))
 #    assert policy_doc == json.loads(POLICY_DOC)
-#    clean_up()
+#    org.clear_cache()
 
 
 @mock_sts
@@ -617,7 +611,7 @@ def test_get_targets_for_policy():
         'ou01-2',
     ]
     assert org.get_targets_for_policy('Blee') is None
-    clean_up()
+    org.clear_cache()
 
 
 @mock_sts
@@ -626,7 +620,6 @@ def test_get_policies_for_target():
     MockOrganization().complex()
     org = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
     org.load()
-    #policies = org.get_policies_for_target('Root')
     policies = org.get_policies_for_target('account04')
     assert len(policies) == 3
     for policy in policies:
@@ -637,7 +630,7 @@ def test_get_policies_for_target():
         assert isinstance(policy, orgs.OrgPolicy)
     policies = org.get_policies_for_target('ou01')
     assert policies is None
-    clean_up()
+    org.clear_cache()
 
 
 @mock_sts
@@ -664,4 +657,4 @@ def test_get_accounts_for_policy_recursive():
     assert len(accounts_for_policy) == 3 
     assert sorted([a.name for a in accounts_for_policy]) == ['account07', 'account09', 'account10']
     assert org.get_accounts_for_policy_recursive('Blee') is None
-    clean_up()
+    org.clear_cache()

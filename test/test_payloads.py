@@ -11,10 +11,9 @@ from moto import (
 from orgcrawler import payloads
 from orgcrawler.utils import yamlfmt
 from orgcrawler.cli.utils import setup_crawler
-from .test_orgs import (
+from orgcrawler.mock import (
+    MockOrganization,
     ORG_ACCESS_ROLE,
-    SIMPLE_ORG_SPEC,
-    build_mock_org,
 )
 
 
@@ -22,7 +21,8 @@ from .test_orgs import (
 @mock_organizations
 @mock_iam
 def test_iam_list_users():
-    org_id, root_id = build_mock_org(SIMPLE_ORG_SPEC)
+    MockOrganization().simple()
+    MockOrganization().simple()
     crawler = setup_crawler(ORG_ACCESS_ROLE)
     account = crawler.accounts[0]
     region = crawler.regions[0]
@@ -36,7 +36,7 @@ def test_iam_list_users():
 @mock_organizations
 @mock_iam
 def test_get_set_account_aliases():
-    org_id, root_id = build_mock_org(SIMPLE_ORG_SPEC)
+    MockOrganization().simple()
     crawler = setup_crawler(ORG_ACCESS_ROLE)
     account = crawler.accounts[0]
     region = crawler.regions[0]
@@ -51,7 +51,7 @@ def test_get_set_account_aliases():
 @mock_organizations
 @mock_s3
 def test_create_list_delete_buckets():
-    org_id, root_id = build_mock_org(SIMPLE_ORG_SPEC)
+    MockOrganization().simple()
     crawler = setup_crawler(ORG_ACCESS_ROLE)
     account = crawler.accounts[0]
     region = crawler.regions[0]
@@ -97,7 +97,7 @@ def test_create_list_delete_buckets():
 @mock_organizations
 @mock_route53
 def test_list_hosted_zones():
-    org_id, root_id = build_mock_org(SIMPLE_ORG_SPEC)
+    MockOrganization().simple()
     crawler = setup_crawler(ORG_ACCESS_ROLE)
     account = crawler.accounts[0]
     region = crawler.regions[0]
@@ -132,7 +132,7 @@ def test_config_describe_rules():
 @mock_organizations
 @mock_config
 def test_config_describe_recorder_status():
-    org_id, root_id = build_mock_org(SIMPLE_ORG_SPEC)
+    MockOrganization().simple()
     crawler = setup_crawler(ORG_ACCESS_ROLE)
     account = crawler.accounts[0]
     region = crawler.regions[0]

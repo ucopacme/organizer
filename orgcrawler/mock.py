@@ -1,7 +1,4 @@
-import os
 import json
-import shutil
-
 import yaml
 import boto3
 

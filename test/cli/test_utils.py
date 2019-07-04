@@ -8,6 +8,7 @@ from moto import (
 
 import orgcrawler
 from orgcrawler import crawlers, payloads
+from orgcrawler.orgs import Org
 from orgcrawler.utils import yamlfmt
 from orgcrawler.cli.utils import (
     get_payload_function_from_string,
@@ -15,12 +16,9 @@ from orgcrawler.cli.utils import (
     setup_crawler,
     format_responses,
 )
-
-from ..test_orgs import (
+from orgcrawler.mock import (
+    MockOrganization,
     ORG_ACCESS_ROLE,
-    SIMPLE_ORG_SPEC,
-    build_mock_org,
-    clean_up,
 )
 
 
@@ -42,8 +40,8 @@ def test_get_payload_function_from_file():
 @mock_organizations
 @mock_iam
 def test_setup_crawler():
-    clean_up()
-    org_id, root_id = build_mock_org(SIMPLE_ORG_SPEC)
+    Org('no_id', 'no_role').clear_cache()
+    MockOrganization().simple()
     crawler = setup_crawler(ORG_ACCESS_ROLE)
     assert isinstance(crawler, crawlers.Crawler)
     assert len(crawler.org.accounts) == 3
@@ -74,7 +72,7 @@ def test_setup_crawler():
 @mock_organizations
 @mock_iam
 def test_format_responses():
-    org_id, root_id = build_mock_org(SIMPLE_ORG_SPEC)
+    MockOrganization().simple()
     crawler = setup_crawler(ORG_ACCESS_ROLE)
     crawler.execute(payloads.get_account_aliases)
     execution = crawler.execute(payloads.get_account_aliases)

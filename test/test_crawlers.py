@@ -12,12 +12,10 @@ from moto import (
 )
 
 from orgcrawler import crawlers, orgs, utils
-from .test_orgs import (
-    MASTER_ACCOUNT_ID,
+from orgcrawler.mock import (
+    MockOrganization,
     ORG_ACCESS_ROLE,
-    SIMPLE_ORG_SPEC,
-    COMPLEX_ORG_SPEC,
-    build_mock_org,
+    MASTER_ACCOUNT_ID,
 )
 
 
@@ -63,8 +61,8 @@ def test_crawler_timer_init():
 @mock_sts
 @mock_organizations
 def test_crawler_response_init():
+    MockOrganization().simple()
     org = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
-    org_id, root_id = build_mock_org(SIMPLE_ORG_SPEC)
     org.load()
     response = crawlers.CrawlerResponse('us-east-1', org.accounts[0])
     assert response.region == 'us-east-1'
@@ -79,8 +77,8 @@ def test_crawler_response_init():
 @mock_sts
 @mock_organizations
 def test_crawler_execution_init():
+    MockOrganization().simple()
     org = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
-    org_id, root_id = build_mock_org(SIMPLE_ORG_SPEC)
     org.load()
     execution = crawlers.CrawlerExecution(get_account_alias)
     assert isfunction(execution.payload)
@@ -95,8 +93,8 @@ def test_crawler_execution_init():
 @mock_sts
 @mock_organizations
 def test_crawler_init():
+    MockOrganization().complex()
     org = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
-    org_id, root_id = build_mock_org(COMPLEX_ORG_SPEC)
     org.load()
     crawler = crawlers.Crawler(org)
     assert isinstance(crawler, crawlers.Crawler)
@@ -165,8 +163,8 @@ def test_crawler_init():
 @mock_sts
 @mock_organizations
 def test_load_account_credentials():
+    MockOrganization().complex()
     org = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
-    org_id, root_id = build_mock_org(COMPLEX_ORG_SPEC)
     org.load()
     crawler = crawlers.Crawler(org)
     crawler.load_account_credentials()
@@ -180,8 +178,8 @@ def test_load_account_credentials():
 @mock_organizations
 @mock_iam
 def test_get_or_update_regions():
+    MockOrganization().complex()
     org = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
-    org_id, root_id = build_mock_org(COMPLEX_ORG_SPEC)
     org.load()
     crawler = crawlers.Crawler(org)
     assert crawler.get_regions() == ALL_REGIONS
@@ -199,8 +197,8 @@ def test_get_or_update_regions():
 @mock_organizations
 @mock_iam
 def test_get_or_update_accounts():
+    MockOrganization().complex()
     org = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
-    org_id, root_id = build_mock_org(COMPLEX_ORG_SPEC)
     org.load()
     crawler = crawlers.Crawler(org)
     assert crawler.get_accounts() == crawler.accounts
@@ -234,8 +232,8 @@ def test_get_or_update_accounts():
 @mock_iam
 @mock_s3
 def test_execute():
+    MockOrganization().complex()
     org = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
-    org_id, root_id = build_mock_org(COMPLEX_ORG_SPEC)
     org.load()
     crawler = crawlers.Crawler(org)
     crawler.load_account_credentials()
