@@ -14,8 +14,11 @@ from moto import mock_organizations, mock_sts
 
 from orgcrawler import utils, orgs, crawlers
 
-ORG_ACCESS_ROLE='myrole'
-MASTER_ACCOUNT_ID='123456789012'
+from orgcrawler.mock import (
+    MockOrg,
+    ORG_ACCESS_ROLE,
+    MASTER_ACCOUNT_ID,
+)
 
 SIMPLE_ORG_SPEC="""
 root:
