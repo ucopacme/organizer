@@ -26,10 +26,11 @@ all_args = dict(
     kwarg3='cow',
 )
 
+
 def set_mock_account_alias(region, account):
     client = boto3.client('iam', region_name=region, **account.credentials)
     client.create_account_alias(AccountAlias='alias-' + account.name)
-    return 
+    return
 
 
 def get_mock_account_alias(region, account):
@@ -75,4 +76,3 @@ def mixed_params(region, account, arg1, arg2, arg3, kwarg1='default1', kwarg2='d
         kwarg2=kwarg2,
         kwarg3=kwarg3,
     ))
-
