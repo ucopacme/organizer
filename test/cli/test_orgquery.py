@@ -6,7 +6,7 @@ from moto import (
 )
 from orgcrawler import orgs, utils
 from orgcrawler.cli import orgquery
-from orgcrawler.mock import (
+from orgcrawler.mock.org import (
     MockOrganization,
     MASTER_ACCOUNT_ID,
     ORG_ACCESS_ROLE,

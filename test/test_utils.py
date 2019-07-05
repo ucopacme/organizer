@@ -10,7 +10,7 @@ from botocore.exceptions import ClientError
 from moto import mock_sts, mock_organizations
 
 from orgcrawler import utils, orgs
-from orgcrawler.mock import (
+from orgcrawler.mock.org import (
     SIMPLE_ORG_SPEC,
     MASTER_ACCOUNT_ID,
     ORG_ACCESS_ROLE,

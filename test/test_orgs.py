@@ -13,7 +13,7 @@ import moto
 from moto import mock_organizations, mock_sts
 
 from orgcrawler import utils, orgs, crawlers
-from orgcrawler.mock import (
+from orgcrawler.mock.org import (
     MockOrganization,
     ORG_ACCESS_ROLE,
     MASTER_ACCOUNT_ID,
