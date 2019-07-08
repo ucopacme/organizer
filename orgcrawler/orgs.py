@@ -269,7 +269,7 @@ class Org(object):
             accounts,
             make_org_account_object,
             func_args=(self,),
-            thread_count=4,
+            thread_count=6,
             logger=self.logger,
         )
         if self._exc_info:   # pragma: no cover
