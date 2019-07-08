@@ -4,6 +4,7 @@ import shutil
 import inspect
 import pickle
 import json
+import time
 from datetime import datetime, timedelta
 
 import boto3
@@ -249,27 +250,51 @@ class Org(object):
         accounts = [account for account in accounts if 'Name' in account]
 
         def make_org_account_object(account, org):
-            try:
-                response = org._client.list_parents(ChildId=account['Id'])
-                parent_id = response['Parents'][0]['Id']
-                org_account = OrgAccount(
-                    org,
-                    name=account['Name'],
-                    id=account['Id'],
-                    email=account['Email'],
-                    parent_id=parent_id,
-                )
-                org_account.load_attached_policy_ids(org._client)
-                org.accounts.append(org_account)
+            message = {
+                'FILE': __file__.split('/')[-1],
+                'CLASS': self.__class__.__name__,
+                'METHOD': inspect.stack()[0][3],
+                'account': account['Id'],
+            }
+            self.logger.info(message)
+            parent_id = None
+            retries = 0
+            max_retry = 4
+            while parent_id is None:
+                try:
+                    response = org._client.list_parents(ChildId=account['Id'])
+                    parent_id = response['Parents'][0]['Id']
+                except ClientError as e:
+                    if e.response['Error']['Code'] == 'TooManyRequestsException':
+                        if retries < max_retry:
+                            retries += 1
+                            message['error'] = 'TooManyRequestsException'
+                            message['retry'] = retries
+                            self.logger.info(message)
+                            time.sleep(1)
+                            continue
+                        else:
+                            org._exc_info = sys.exc_info()
+                            #raise e
+                            return
+                except Exception:   # pragma: no cover
+                     org._exc_info = sys.exc_info()
 
-            except Exception:   # pragma: no cover
-                org._exc_info = sys.exc_info()
+            org_account = OrgAccount(
+                org,
+                name=account['Name'],
+                id=account['Id'],
+                email=account['Email'],
+                parent_id=parent_id,
+            )
+            org_account.load_attached_policy_ids(org._client)
+            org.accounts.append(org_account)
 
         utils.queue_threads(
             accounts,
             make_org_account_object,
             func_args=(self,),
-            thread_count=6,
+            thread_count=40,
             logger=self.logger,
         )
         if self._exc_info:   # pragma: no cover
@@ -685,12 +710,16 @@ class OrgObject(object):
         )
         policies = response['Policies']
         while 'NextToken' in response and response['NextToken']:  # pragma: no cover
-            client.list_policies_for_target(
-                TargetId=self.id,
-                Filter='SERVICE_CONTROL_POLICY',
-                NextToken=response['NextToken'],
-            )
-            policies += response['Policies']
+            try:
+                response = client.list_policies_for_target(
+                    TargetId=self.id,
+                    Filter='SERVICE_CONTROL_POLICY',
+                    NextToken=response['NextToken'],
+                )
+                policies += response['Policies']
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'TooManyRequestsException':
+                    continue
         self.attached_policy_ids = [p['Id'] for p in policies]
 
 
