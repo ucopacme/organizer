@@ -8,6 +8,7 @@ import time
 from datetime import datetime, timedelta
 
 import boto3
+import botocore
 from botocore.exceptions import ClientError
 
 from orgcrawler import utils
@@ -181,7 +182,9 @@ class Org(object):
                 e.response['Error']['Code'],
             )
             sys.exit(errmsg)
-        return boto3.client('organizations', **credentials)
+        # see https://github.com/boto/botocore/issues/619
+        client_config = botocore.config.Config(max_pool_connections=25)
+        return boto3.client('organizations', config=client_config, **credentials)
 
     def _get_cached_org_from_file(self):
         message = {
@@ -287,14 +290,14 @@ class Org(object):
                 email=account['Email'],
                 parent_id=parent_id,
             )
-            org_account.load_attached_policy_ids(org._client)
+            org_account.load_attached_policy_ids(org._client, max_retry=4)
             org.accounts.append(org_account)
 
         utils.queue_threads(
             accounts,
             make_org_account_object,
             func_args=(self,),
-            thread_count=40,
+            thread_count=25,
             logger=self.logger,
         )
         if self._exc_info:   # pragma: no cover
@@ -331,7 +334,7 @@ class Org(object):
                 id=ou['Id'],
                 parent_id=parent_id,
             )
-            org_unit.load_attached_policy_ids(self._client)
+            org_unit.load_attached_policy_ids(self._client, max_retry=4)
             self.org_units.append(org_unit)
             self._recurse_organization(ou['Id'])
 
@@ -697,30 +700,95 @@ class OrgObject(object):
         org_object_dump.pop('logger')
         return org_object_dump
 
-    def load_attached_policy_ids(self, client):
+    def get_parent_id(self, client, max_retry=4):
+        '''
+        Set the parent id in OrgObject.  Tread aware.
+        '''
         message = {
             'FILE': __file__.split('/')[-1],
             'CLASS': self.__class__.__name__,
             'METHOD': inspect.stack()[0][3],
+            'object_id': self.id,
+            'object_name': self.name,
         }
         self.logger.info(message)
-        response = client.list_policies_for_target(
-            TargetId=self.id,
-            Filter='SERVICE_CONTROL_POLICY',
-        )
-        policies = response['Policies']
-        while 'NextToken' in response and response['NextToken']:  # pragma: no cover
+        retry_count = 0
+        response = None
+        next_token = None
+        while response is None or next_token is not None:
+            try:
+                response = client.list_parents(ChildId=account['Id'])
+                next_token = response.get('NextToken')
+            except ClientError as e:   # pragma: no cover
+                if e.response['Error']['Code'] == 'TooManyRequestsException':
+                    if retry_count < max_retry:
+                        retry_count += 1
+                        message['error'] = 'TooManyRequestsException'
+                        message['retry_count'] = retry_count
+                        self.logger.info(message)
+                        time.sleep(1)
+                        continue
+                    else:
+                        #break
+                        raise e
+        return response['Parents'][0]['Id']
+
+    def load_attached_policy_ids(self, client, max_retry):
+        message = {
+            'FILE': __file__.split('/')[-1],
+            'CLASS': self.__class__.__name__,
+            'METHOD': inspect.stack()[0][3],
+            'object_id': self.id,
+            'object_name': self.name,
+        }
+        self.logger.info(message)
+        key = 'Policies'
+
+        retry_count = 0
+        response = None
+        next_token = None
+        collector = []
+        while response is None or next_token is not None:
             try:
                 response = client.list_policies_for_target(
                     TargetId=self.id,
                     Filter='SERVICE_CONTROL_POLICY',
-                    NextToken=response['NextToken'],
                 )
-                policies += response['Policies']
-            except ClientError as e:
+                next_token = response.get('NextToken')
+                collector += response[key]
+            except ClientError as e:   # pragma: no cover
                 if e.response['Error']['Code'] == 'TooManyRequestsException':
-                    continue
+                    if retry_count < max_retry:
+                        retry_count += 1
+                        message['error'] = 'TooManyRequestsException'
+                        message['retry_count'] = retry_count
+                        self.logger.info(message)
+                        time.sleep(1)
+                        continue
+                    else:
+                        #break
+                        raise e
+
+        policies = collector
         self.attached_policy_ids = [p['Id'] for p in policies]
+
+        #response = client.list_policies_for_target(
+        #    TargetId=self.id,
+        #    Filter='SERVICE_CONTROL_POLICY',
+        #)
+        #policies = response['Policies']
+        #while 'NextToken' in response and response['NextToken']:  # pragma: no cover
+        #    try:
+        #        response = client.list_policies_for_target(
+        #            TargetId=self.id,
+        #            Filter='SERVICE_CONTROL_POLICY',
+        #            NextToken=response['NextToken'],
+        #        )
+        #        policies += response['Policies']
+        #    except ClientError as e:
+        #        if e.response['Error']['Code'] == 'TooManyRequestsException':
+        #            continue
+        #self.attached_policy_ids = [p['Id'] for p in policies]
 
 
 class OrganizationalUnit(OrgObject):
@@ -769,3 +837,37 @@ class OrgPolicy(OrgObject):
             )
             targets += response['Targets']
         self.targets = targets
+
+
+
+
+'''
+Connection pool is full, discarding connection #619
+https://github.com/boto/botocore/issues/619
+
+{"time_stamp": "2019-07-08 16:42:27,480", "log_level": "WARNING", "log_message": Connection pool is full, discarding connection: organizations.us-east-1.amazonaws.com}
+
+{"time_stamp": "2019-07-08 16:42:27,482", "log_level": "WARNING", "log_message": Connection pool is full, discarding connection: organizations.us-east-1.amazonaws.com}
+
+{"time_stamp": "2019-07-08 16:42:27,482", "log_level": "WARNING", "log_message": Connection pool is full, discarding connection: organizations.us-east-1.amazonaws.com}
+
+
+This one can happen if the number of threads that create a http connection is higher than the default connection pool size of botocore. which is 10.
+
+---
+
+This warning is fine. If you dig into the urllib3 connection pool code, it's basically the pool of persistent connections and not the maximum number of concurrent connections you can have. The connections in the pool are re-used if they haven't been closed by the endpoint.
+
+If you'd like to boost the size of this pool, it can be done per-endpoint using the low-level botocore config. boto3 example:
+
+import boto3
+import botocore
+
+client_config = botocore.config.Config(
+    max_pool_connections=25,
+)
+boto3.client('lambda', config=client_config)
+Botocore Config Documentation:
+https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html
+
+'''
