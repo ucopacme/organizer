@@ -4,7 +4,6 @@ import shutil
 import inspect
 import pickle
 import json
-import time
 from datetime import datetime, timedelta
 
 import boto3
@@ -268,12 +267,11 @@ class Org(object):
                     id=account['Id'],
                     email=account['Email'],
                 )
-                org_account.get_parent_id(org._client, max_retry=4)
-                org_account.load_attached_policy_ids(org._client, max_retry=4)
+                org_account.get_parent_id()
+                org_account.load_attached_policy_ids()
                 org.accounts.append(org_account)
-            
             except Exception:   # pragma: no cover
-                 org._exc_info = sys.exc_info()
+                org._exc_info = sys.exc_info()
 
         utils.queue_threads(
             accounts,
@@ -316,7 +314,7 @@ class Org(object):
                 id=ou['Id'],
                 parent_id=parent_id,
             )
-            org_unit.load_attached_policy_ids(self._client, max_retry=4)
+            org_unit.load_attached_policy_ids()
             self.org_units.append(org_unit)
             self._recurse_organization(ou['Id'])
 
@@ -350,7 +348,7 @@ class Org(object):
                     name=policy['Name'],
                     id=policy['Id'],
                 )
-                org_policy.load_targets(org._client)
+                org_policy.load_targets()
                 org.policies.append(org_policy)
             except Exception:   # pragma: no cover
                 org._exc_info = sys.exc_info()
@@ -667,6 +665,7 @@ class OrgObject(object):
     def __init__(self, organization, **kwargs):
         self.organization_id = organization.id
         self.master_account_id = organization.master_account_id
+        self.client = organization._client
         self.logger = organization.logger
         self.name = kwargs['name']
         self.id = kwargs.get('id')
@@ -682,9 +681,9 @@ class OrgObject(object):
         org_object_dump.pop('logger')
         return org_object_dump
 
-    def get_parent_id(self, client, max_retry=4):
+    def get_parent_id(self):
         '''
-        Set the parent id in OrgObject.  Tread aware.
+        Set the parent id in OrgObject.  Thread freindly.
         '''
         message = {
             'FILE': __file__.split('/')[-1],
@@ -694,74 +693,35 @@ class OrgObject(object):
             'object_name': self.name,
         }
         self.logger.info(message)
-
-        key = 'Parents'
-        retry_count = 0
-        response = None
-        next_token = None
-        collector = []
-        while response is None or next_token is not None:
-            try:
-                response = client.list_parents(ChildId=self.id)
-                next_token = response.get('NextToken')
-                collector += response[key]
-            except ClientError as e:   # pragma: no cover
-                if e.response['Error']['Code'] == 'TooManyRequestsException':
-                    if retry_count < max_retry:
-                        retry_count += 1
-                        message['error'] = 'TooManyRequestsException'
-                        message['retry_count'] = retry_count
-                        self.logger.warning(message)
-                        time.sleep(1)
-                        continue
-                    else:
-                        raise e
-        self.parent_id = collector[0]['Id']
-
-    def load_attached_policy_ids(self, client, max_retry):
-        message = {
-            'FILE': __file__.split('/')[-1],
-            'CLASS': self.__class__.__name__,
-            'METHOD': inspect.stack()[0][3],
-            'object_id': self.id,
-            'object_name': self.name,
-        }
-        self.logger.info(message)
-        key = 'Policies'
-        function = client.list_policies_for_target
-        kwargs = dict(
-            TargetId=self.id,
-            Filter='SERVICE_CONTROL_POLICY',
+        parents = utils.handle_nexttoken_and_retries(
+            logger=self.logger,
+            collector_key='Parents',
+            function=self.client.list_parents,
+            kwargs=dict(
+                ChildId=self.id,
+            )
         )
-        policies = utils.handle_nexttoken_and_retries(self.logger, client, max_retry, key, function, kwargs)
+        self.parent_id = parents[0]['Id']
+
+    def load_attached_policy_ids(self):
+        message = {
+            'FILE': __file__.split('/')[-1],
+            'CLASS': self.__class__.__name__,
+            'METHOD': inspect.stack()[0][3],
+            'object_id': self.id,
+            'object_name': self.name,
+        }
+        self.logger.info(message)
+        policies = utils.handle_nexttoken_and_retries(
+            logger=self.logger,
+            collector_key='Policies',
+            function=self.client.list_policies_for_target,
+            kwargs=dict(
+                TargetId=self.id,
+                Filter='SERVICE_CONTROL_POLICY',
+            )
+        )
         self.attached_policy_ids = [p['Id'] for p in policies]
-
-        #retry_count = 0
-        #response = None
-        #next_token = None
-        #collector = []
-        #while response is None or next_token is not None:
-        #    try:
-        #        response = client.list_policies_for_target(
-        #            TargetId=self.id,
-        #            Filter='SERVICE_CONTROL_POLICY',
-        #        )
-        #        next_token = response.get('NextToken')
-        #        collector += response[key]
-        #    except ClientError as e:   # pragma: no cover
-        #        if e.response['Error']['Code'] == 'TooManyRequestsException':
-        #            if retry_count < max_retry:
-        #                retry_count += 1
-        #                message['error'] = 'TooManyRequestsException'
-        #                message['retry_count'] = retry_count
-        #                self.logger.info(message)
-        #                time.sleep(1)
-        #                continue
-        #            else:
-        #                raise e
-
-        #policies = collector
-        #self.attached_policy_ids = [p['Id'] for p in policies]
 
 
 class OrganizationalUnit(OrgObject):
@@ -793,7 +753,7 @@ class OrgPolicy(OrgObject):
         super(OrgPolicy, self).__init__(*args, **kwargs)
         self.targets = kwargs.get('targets', [])
 
-    def load_targets(self, client):
+    def load_targets(self):
         message = {
             'FILE': __file__.split('/')[-1],
             'CLASS': self.__class__.__name__,
@@ -801,17 +761,14 @@ class OrgPolicy(OrgObject):
             'policy': self.name,
         }
         self.logger.info(message)
-        response = client.list_targets_for_policy(PolicyId=self.id)
-        targets = response['Targets']
-        while 'NextToken' in response and response['NextToken']:  # pragma: no cover
-            response = client.list_targets_for_policy(
+        self.targets = utils.handle_nexttoken_and_retries(
+            logger=self.logger,
+            collector_key='Targets',
+            function=self.client.list_targets_for_policy,
+            kwargs=dict(
                 PolicyId=self.id,
-                NextToken=response['NextToken'],
             )
-            targets += response['Targets']
-        self.targets = targets
-
-
+        )
 
 
 '''

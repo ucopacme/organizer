@@ -7,6 +7,7 @@ except ImportError:     # pragma: no cover
 import json
 import yaml
 import inspect
+import time
 from datetime import datetime
 from functools import singledispatch
 
@@ -23,7 +24,7 @@ def get_logger(log_level=DEFAULT_LOGLEVEL):
     my_logger = Logger(loglevel=log_level)
     message = {
         'FILE': __file__.split('/')[-1],
-        'METHOD': inspect.stack()[0][3],
+        'FUCNTION': inspect.stack()[0][3],
     }
     my_logger.info(message)
     return my_logger
@@ -146,8 +147,13 @@ def all_regions():
     return regions_for_service('ec2')
 
 
-def handle_nexttoken_and_retries(logger, client, max_retry, key, function, kwargs):
-
+def handle_nexttoken_and_retries(logger, collector_key, function, kwargs):
+    message = {
+        'FILE': __file__.split('/')[-1],
+        'FUCNTION': inspect.stack()[0][3],
+    }
+    logger.info(message)
+    max_retry = 4
     retry_count = 0
     response = None
     next_token = None
@@ -156,16 +162,23 @@ def handle_nexttoken_and_retries(logger, client, max_retry, key, function, kwarg
         try:
             response = function(**kwargs)
             next_token = response.get('NextToken')
-            collector += response[key]
-        except ClientError as e:   # pragma: no cover
+            collector += response[collector_key]
+            print(response)
+            print(next_token)
+        except ClientError as e:
             if e.response['Error']['Code'] == 'TooManyRequestsException':
                 if retry_count < max_retry:
                     retry_count += 1
+                    message['passed_function'] = function
                     message['error'] = 'TooManyRequestsException'
                     message['retry_count'] = retry_count
-                    self.logger.info(message)
+                    logger.warning(message)
                     time.sleep(1)
                     continue
                 else:
                     raise e
+                    break
+            else:
+                raise e
+                break
     return collector
