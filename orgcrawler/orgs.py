@@ -257,47 +257,29 @@ class Org(object):
                 'FILE': __file__.split('/')[-1],
                 'CLASS': self.__class__.__name__,
                 'METHOD': inspect.stack()[0][3],
-                'account': account['Id'],
+                'account_id': account['Id'],
+                'account_name': account['Name'],
             }
             self.logger.info(message)
-            parent_id = None
-            retries = 0
-            max_retry = 4
-            while parent_id is None:
-                try:
-                    response = org._client.list_parents(ChildId=account['Id'])
-                    parent_id = response['Parents'][0]['Id']
-                except ClientError as e:
-                    if e.response['Error']['Code'] == 'TooManyRequestsException':
-                        if retries < max_retry:
-                            retries += 1
-                            message['error'] = 'TooManyRequestsException'
-                            message['retry'] = retries
-                            self.logger.info(message)
-                            time.sleep(1)
-                            continue
-                        else:
-                            org._exc_info = sys.exc_info()
-                            #raise e
-                            return
-                except Exception:   # pragma: no cover
-                     org._exc_info = sys.exc_info()
-
-            org_account = OrgAccount(
-                org,
-                name=account['Name'],
-                id=account['Id'],
-                email=account['Email'],
-                parent_id=parent_id,
-            )
-            org_account.load_attached_policy_ids(org._client, max_retry=4)
-            org.accounts.append(org_account)
+            try:
+                org_account = OrgAccount(
+                    org,
+                    name=account['Name'],
+                    id=account['Id'],
+                    email=account['Email'],
+                )
+                org_account.get_parent_id(org._client, max_retry=4)
+                org_account.load_attached_policy_ids(org._client, max_retry=4)
+                org.accounts.append(org_account)
+            
+            except Exception:   # pragma: no cover
+                 org._exc_info = sys.exc_info()
 
         utils.queue_threads(
             accounts,
             make_org_account_object,
             func_args=(self,),
-            thread_count=25,
+            thread_count=4,
             logger=self.logger,
         )
         if self._exc_info:   # pragma: no cover
@@ -712,26 +694,29 @@ class OrgObject(object):
             'object_name': self.name,
         }
         self.logger.info(message)
+
+        key = 'Parents'
         retry_count = 0
         response = None
         next_token = None
+        collector = []
         while response is None or next_token is not None:
             try:
-                response = client.list_parents(ChildId=account['Id'])
+                response = client.list_parents(ChildId=self.id)
                 next_token = response.get('NextToken')
+                collector += response[key]
             except ClientError as e:   # pragma: no cover
                 if e.response['Error']['Code'] == 'TooManyRequestsException':
                     if retry_count < max_retry:
                         retry_count += 1
                         message['error'] = 'TooManyRequestsException'
                         message['retry_count'] = retry_count
-                        self.logger.info(message)
+                        self.logger.warning(message)
                         time.sleep(1)
                         continue
                     else:
-                        #break
                         raise e
-        return response['Parents'][0]['Id']
+        self.parent_id = collector[0]['Id']
 
     def load_attached_policy_ids(self, client, max_retry):
         message = {
@@ -766,29 +751,10 @@ class OrgObject(object):
                         time.sleep(1)
                         continue
                     else:
-                        #break
                         raise e
 
         policies = collector
         self.attached_policy_ids = [p['Id'] for p in policies]
-
-        #response = client.list_policies_for_target(
-        #    TargetId=self.id,
-        #    Filter='SERVICE_CONTROL_POLICY',
-        #)
-        #policies = response['Policies']
-        #while 'NextToken' in response and response['NextToken']:  # pragma: no cover
-        #    try:
-        #        response = client.list_policies_for_target(
-        #            TargetId=self.id,
-        #            Filter='SERVICE_CONTROL_POLICY',
-        #            NextToken=response['NextToken'],
-        #        )
-        #        policies += response['Policies']
-        #    except ClientError as e:
-        #        if e.response['Error']['Code'] == 'TooManyRequestsException':
-        #            continue
-        #self.attached_policy_ids = [p['Id'] for p in policies]
 
 
 class OrganizationalUnit(OrgObject):
