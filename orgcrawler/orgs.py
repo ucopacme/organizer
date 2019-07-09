@@ -70,7 +70,7 @@ class Org(object):
         self.accounts = []
         self.org_units = []
         self.policies = []
-        self._client = None
+        self.client = None
         self._cache_file_max_age = cache_file_max_age
         self._cache_dir = os.path.expanduser(cache_dir)
         if cache_file is None:
@@ -105,7 +105,7 @@ class Org(object):
         org_dump = dict()
         org_dump.update(vars(self).items())
         org_dump.pop('logger')
-        org_dump.pop('_client')
+        org_dump.pop('client')
         org_dump.pop('_cache_dir')
         org_dump.pop('_cache_file')
         org_dump.pop('_cache_file_max_age')
@@ -159,7 +159,7 @@ class Org(object):
             'METHOD': inspect.stack()[0][3],
         }
         self.logger.info(message)
-        self._client = self._get_org_client()
+        self.client = self._get_org_client()
 
     def _get_org_client(self):
         """ Returns a boto3 client for Organizations object """
@@ -228,9 +228,9 @@ class Org(object):
             'METHOD': inspect.stack()[0][3],
         }
         self.logger.info(message)
-        response = self._client.describe_organization()
+        response = self.client.describe_organization()
         self.id = response['Organization']['Id']
-        self.root_id = self._client.list_roots()['Roots'][0]['Id']
+        self.root_id = self.client.list_roots()['Roots'][0]['Id']
 
     def _load_accounts(self):
         message = {
@@ -239,11 +239,11 @@ class Org(object):
             'METHOD': inspect.stack()[0][3],
         }
         self.logger.info(message)
-        response = self._client.list_accounts()
+        response = self.client.list_accounts()
         accounts = response['Accounts']
         while 'NextToken' in response and response['NextToken']:    # pragma: no cover
             try:
-                response = self._client.list_accounts(NextToken=response['NextToken'])
+                response = self.client.list_accounts(NextToken=response['NextToken'])
                 accounts += response['Accounts']
             except ClientError as e:
                 if e.response['Error']['Code'] == 'TooManyRequestsException':
@@ -299,10 +299,10 @@ class Org(object):
             'METHOD': inspect.stack()[0][3],
         }
         self.logger.info(message)
-        response = self._client.list_organizational_units_for_parent(ParentId=parent_id)
+        response = self.client.list_organizational_units_for_parent(ParentId=parent_id)
         org_units = response['OrganizationalUnits']
         while 'NextToken' in response and response['NextToken']:    # pragma: no cover
-            response = self._client.list_organizational_units_for_parent(
+            response = self.client.list_organizational_units_for_parent(
                 ParentId=parent_id,
                 NextToken=response['NextToken']
             )
@@ -325,10 +325,10 @@ class Org(object):
             'METHOD': inspect.stack()[0][3],
         }
         self.logger.info(message)
-        response = self._client.list_policies(Filter='SERVICE_CONTROL_POLICY')
+        response = self.client.list_policies(Filter='SERVICE_CONTROL_POLICY')
         policies = response['Policies']
         while 'NextToken' in response and response['NextToken']:    # pragma: no cover
-            response = self._client.list_policies(
+            response = self.client.list_policies(
                 Filter='SERVICE_CONTROL_POLICY',
                 NextToken=response['NextToken'],
             )
@@ -601,8 +601,8 @@ class Org(object):
         """
         policy_id = self.get_policy_id(identifier)
         #if policy_id is not None:
-        #    #return self._client.describe_policy(PolicyId=policy_id)['Policy']['Content']
-        #    return self._client.describe_policy(PolicyId=policy_id)
+        #    #return self.client.describe_policy(PolicyId=policy_id)['Policy']['Content']
+        #    return self.client.describe_policy(PolicyId=policy_id)
         #return None
     '''
 
@@ -665,7 +665,7 @@ class OrgObject(object):
     def __init__(self, organization, **kwargs):
         self.organization_id = organization.id
         self.master_account_id = organization.master_account_id
-        self.client = organization._client
+        self.client = organization.client
         self.logger = organization.logger
         self.name = kwargs['name']
         self.id = kwargs.get('id')
@@ -679,6 +679,7 @@ class OrgObject(object):
         org_object_dump = dict()
         org_object_dump.update(vars(self).items())
         org_object_dump.pop('logger')
+        org_object_dump.pop('client')
         return org_object_dump
 
     def get_parent_id(self):

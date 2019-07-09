@@ -160,11 +160,12 @@ def handle_nexttoken_and_retries(logger, collector_key, function, kwargs):
     collector = []
     while response is None or next_token is not None:
         try:
-            response = function(**kwargs)
+            if next_token is None:
+                response = function(**kwargs)
+            else:
+                response = function(NextToken=next_token, **kwargs)
             next_token = response.get('NextToken')
             collector += response[collector_key]
-            print(response)
-            print(next_token)
         except ClientError as e:
             if e.response['Error']['Code'] == 'TooManyRequestsException':
                 if retry_count < max_retry:
