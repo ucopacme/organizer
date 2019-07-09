@@ -728,33 +728,40 @@ class OrgObject(object):
         }
         self.logger.info(message)
         key = 'Policies'
-
-        retry_count = 0
-        response = None
-        next_token = None
-        collector = []
-        while response is None or next_token is not None:
-            try:
-                response = client.list_policies_for_target(
-                    TargetId=self.id,
-                    Filter='SERVICE_CONTROL_POLICY',
-                )
-                next_token = response.get('NextToken')
-                collector += response[key]
-            except ClientError as e:   # pragma: no cover
-                if e.response['Error']['Code'] == 'TooManyRequestsException':
-                    if retry_count < max_retry:
-                        retry_count += 1
-                        message['error'] = 'TooManyRequestsException'
-                        message['retry_count'] = retry_count
-                        self.logger.info(message)
-                        time.sleep(1)
-                        continue
-                    else:
-                        raise e
-
-        policies = collector
+        function = client.list_policies_for_target
+        kwargs = dict(
+            TargetId=self.id,
+            Filter='SERVICE_CONTROL_POLICY',
+        )
+        policies = utils.handle_nexttoken_and_retries(self.logger, client, max_retry, key, function, kwargs)
         self.attached_policy_ids = [p['Id'] for p in policies]
+
+        #retry_count = 0
+        #response = None
+        #next_token = None
+        #collector = []
+        #while response is None or next_token is not None:
+        #    try:
+        #        response = client.list_policies_for_target(
+        #            TargetId=self.id,
+        #            Filter='SERVICE_CONTROL_POLICY',
+        #        )
+        #        next_token = response.get('NextToken')
+        #        collector += response[key]
+        #    except ClientError as e:   # pragma: no cover
+        #        if e.response['Error']['Code'] == 'TooManyRequestsException':
+        #            if retry_count < max_retry:
+        #                retry_count += 1
+        #                message['error'] = 'TooManyRequestsException'
+        #                message['retry_count'] = retry_count
+        #                self.logger.info(message)
+        #                time.sleep(1)
+        #                continue
+        #            else:
+        #                raise e
+
+        #policies = collector
+        #self.attached_policy_ids = [p['Id'] for p in policies]
 
 
 class OrganizationalUnit(OrgObject):

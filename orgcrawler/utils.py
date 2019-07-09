@@ -144,3 +144,28 @@ def regions_for_service(service_name):
 
 def all_regions():
     return regions_for_service('ec2')
+
+
+def handle_nexttoken_and_retries(logger, client, max_retry, key, function, kwargs):
+
+    retry_count = 0
+    response = None
+    next_token = None
+    collector = []
+    while response is None or next_token is not None:
+        try:
+            response = function(**kwargs)
+            next_token = response.get('NextToken')
+            collector += response[key]
+        except ClientError as e:   # pragma: no cover
+            if e.response['Error']['Code'] == 'TooManyRequestsException':
+                if retry_count < max_retry:
+                    retry_count += 1
+                    message['error'] = 'TooManyRequestsException'
+                    message['retry_count'] = retry_count
+                    self.logger.info(message)
+                    time.sleep(1)
+                    continue
+                else:
+                    raise e
+    return collector
