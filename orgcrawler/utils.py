@@ -150,7 +150,7 @@ def all_regions():
 def handle_nexttoken_and_retries(logger, collector_key, function, kwargs):
     message = {
         'FILE': __file__.split('/')[-1],
-        'FUCNTION': inspect.stack()[0][3],
+        'FUNCTION': inspect.stack()[0][3],
     }
     logger.info(message)
     max_retry = 4
@@ -178,8 +178,6 @@ def handle_nexttoken_and_retries(logger, collector_key, function, kwargs):
                     continue
                 else:
                     raise e
-                    break
             else:
                 raise e
-                break
     return collector
