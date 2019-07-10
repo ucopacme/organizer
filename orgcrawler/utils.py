@@ -147,12 +147,14 @@ def all_regions():
     return regions_for_service('ec2')
 
 
-def handle_nexttoken_and_retries(logger, collector_key, function, kwargs):
+def handle_nexttoken_and_retries(obj, collector_key, function, kwargs=dict()):
     message = {
         'FILE': __file__.split('/')[-1],
         'FUNCTION': inspect.stack()[0][3],
+        'OBJECT': obj.__class__,
+        'object_id': obj.id,
     }
-    logger.info(message)
+    obj.logger.info(message)
     max_retry = 4
     retry_count = 0
     response = None
@@ -173,7 +175,7 @@ def handle_nexttoken_and_retries(logger, collector_key, function, kwargs):
                     message['passed_function'] = function
                     message['error'] = 'TooManyRequestsException'
                     message['retry_count'] = retry_count
-                    logger.warning(message)
+                    obj.logger.warning(message)
                     time.sleep(1)
                     continue
                 else:

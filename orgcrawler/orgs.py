@@ -239,16 +239,12 @@ class Org(object):
             'METHOD': inspect.stack()[0][3],
         }
         self.logger.info(message)
-        response = self.client.list_accounts()
-        accounts = response['Accounts']
-        while 'NextToken' in response and response['NextToken']:    # pragma: no cover
-            try:
-                response = self.client.list_accounts(NextToken=response['NextToken'])
-                accounts += response['Accounts']
-            except ClientError as e:
-                if e.response['Error']['Code'] == 'TooManyRequestsException':
-                    continue
-        # skip accounts with no 'Name' key as these are not fully created yet.
+        accounts = utils.handle_nexttoken_and_retries(
+            obj=self,
+            collector_key='Accounts',
+            function=self.client.list_accounts,
+        )
+        # skip accounts with no 'Name' key, as these are not fully created yet.
         accounts = [account for account in accounts if 'Name' in account]
 
         def make_org_account_object(account, org):
@@ -299,14 +295,12 @@ class Org(object):
             'METHOD': inspect.stack()[0][3],
         }
         self.logger.info(message)
-        response = self.client.list_organizational_units_for_parent(ParentId=parent_id)
-        org_units = response['OrganizationalUnits']
-        while 'NextToken' in response and response['NextToken']:    # pragma: no cover
-            response = self.client.list_organizational_units_for_parent(
-                ParentId=parent_id,
-                NextToken=response['NextToken']
-            )
-            org_units += response['OrganizationalUnits']
+        org_units = utils.handle_nexttoken_and_retries(
+            obj=self,
+            collector_key='OrganizationalUnits',
+            function=self.client.list_organizational_units_for_parent,
+            kwargs=dict(ParentId=parent_id),
+        )
         for ou in org_units:
             org_unit = OrganizationalUnit(
                 self,
@@ -325,14 +319,12 @@ class Org(object):
             'METHOD': inspect.stack()[0][3],
         }
         self.logger.info(message)
-        response = self.client.list_policies(Filter='SERVICE_CONTROL_POLICY')
-        policies = response['Policies']
-        while 'NextToken' in response and response['NextToken']:    # pragma: no cover
-            response = self.client.list_policies(
-                Filter='SERVICE_CONTROL_POLICY',
-                NextToken=response['NextToken'],
-            )
-            policies += response['Policies']
+        policies = utils.handle_nexttoken_and_retries(
+            obj=self,
+            collector_key='Policies',
+            function=self.client.list_policies,
+            kwargs=dict(Filter='SERVICE_CONTROL_POLICY'),
+        )
 
         def make_org_policy_object(policy, org):
             message = {
@@ -693,9 +685,8 @@ class OrgObject(object):
             'object_id': self.id,
             'object_name': self.name,
         }
-        self.logger.info(message)
         parents = utils.handle_nexttoken_and_retries(
-            logger=self.logger,
+            obj=self,
             collector_key='Parents',
             function=self.client.list_parents,
             kwargs=dict(
@@ -714,7 +705,7 @@ class OrgObject(object):
         }
         self.logger.info(message)
         policies = utils.handle_nexttoken_and_retries(
-            logger=self.logger,
+            obj=self,
             collector_key='Policies',
             function=self.client.list_policies_for_target,
             kwargs=dict(
@@ -763,7 +754,7 @@ class OrgPolicy(OrgObject):
         }
         self.logger.info(message)
         self.targets = utils.handle_nexttoken_and_retries(
-            logger=self.logger,
+            obj=self,
             collector_key='Targets',
             function=self.client.list_targets_for_policy,
             kwargs=dict(

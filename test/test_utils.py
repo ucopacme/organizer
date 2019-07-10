@@ -112,15 +112,6 @@ def test_handle_nexttoken_and_retries():
         else:
             return {'mock-key': ['2nd-pass']}
 
-    collector = utils.handle_nexttoken_and_retries(
-        logger=logger.Logger(),
-        collector_key='mock-key', 
-        function=mock_function_set_next_token,
-        kwargs=dict(),
-    )
-    print(collector)
-    assert collector == ['1st-pass', '2nd-pass']
-
     def mock_function_raise_client_error(error_code):
         raise ClientError(
             {'Error': {
@@ -129,10 +120,22 @@ def test_handle_nexttoken_and_retries():
             'mock_function',
         )
 
+    def mock_function_raise_value_error():
+        raise ValueError('this is a value error')
+
+    org = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
+    collector = utils.handle_nexttoken_and_retries(
+        obj=org,
+        collector_key='mock-key',
+        function=mock_function_set_next_token,
+        kwargs=dict(),
+    )
+    assert collector == ['1st-pass', '2nd-pass']
+
     exception_name = 'TooManyRequestsException'
     with pytest.raises(ClientError) as e:
         collector = utils.handle_nexttoken_and_retries(
-            logger=logger.Logger(),
+            obj=org,
             collector_key='mock-key',
             function=mock_function_raise_client_error,
             kwargs=dict(error_code=exception_name),
@@ -142,19 +145,16 @@ def test_handle_nexttoken_and_retries():
     exception_name = 'SomeOtherException'
     with pytest.raises(ClientError) as e:
         collector = utils.handle_nexttoken_and_retries(
-            logger=logger.Logger(),
+            obj=org,
             collector_key='mock-key',
             function=mock_function_raise_client_error,
             kwargs=dict(error_code=exception_name),
         )
     assert e.value.response['Error']['Code'] == exception_name
 
-    def mock_function_raise_value_error():
-        raise ValueError('this is a value error')
-
     with pytest.raises(ValueError) as e:
         collector = utils.handle_nexttoken_and_retries(
-            logger=logger.Logger(),
+            obj=org,
             collector_key='mock-key',
             function=mock_function_raise_value_error,
             kwargs=dict(),
