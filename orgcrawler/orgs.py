@@ -182,7 +182,9 @@ class Org(object):
             )
             sys.exit(errmsg)
         # see https://github.com/boto/botocore/issues/619
-        client_config = botocore.config.Config(max_pool_connections=25)
+        client_config = botocore.config.Config(
+            max_pool_connections=utils.DEFAULT_THREAD_COUNT
+        )
         return boto3.client('organizations', config=client_config, **credentials)
 
     def _get_cached_org_from_file(self):
@@ -273,7 +275,8 @@ class Org(object):
             accounts,
             make_org_account_object,
             func_args=(self,),
-            thread_count=4,
+            #thread_count=len(accounts),
+            #thread_count=4,
             logger=self.logger,
         )
         if self._exc_info:   # pragma: no cover
@@ -349,7 +352,7 @@ class Org(object):
             policies,
             make_org_policy_object,
             func_args=(self,),
-            thread_count=len(policies),
+            #thread_count=len(policies),
             logger=self.logger,
         )
         if self._exc_info:   # pragma: no cover
@@ -685,6 +688,7 @@ class OrgObject(object):
             'object_id': self.id,
             'object_name': self.name,
         }
+        self.logger.info(message)
         parents = utils.handle_nexttoken_and_retries(
             obj=self,
             collector_key='Parents',

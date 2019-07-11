@@ -17,7 +17,8 @@ from botocore.exceptions import ClientError
 from orgcrawler.logger import Logger
 
 
-DEFAULT_LOGLEVEL = 'error'
+DEFAULT_LOGLEVEL = 'warning'
+DEFAULT_THREAD_COUNT = 20
 
 
 def get_logger(log_level=DEFAULT_LOGLEVEL):
@@ -108,8 +109,17 @@ def get_master_account_id(role_name=None):
         sys.exit(e)
 
 
-def queue_threads(sequence, func, func_args=(), thread_count=20, logger=get_logger()):
-    """generalized abstraction for running queued tasks in a thread pool"""
+def queue_threads(sequence, func, func_args=(), thread_count=DEFAULT_THREAD_COUNT, logger=get_logger()):
+    """
+    Generalized abstraction for running queued tasks in a thread pool
+
+    Args:
+        sequence (list): list of items or data structures to iterate over
+        func (Function): python code to run within the threads
+        func_args (tuple): optional arguments for 'func'
+        thread_count (int): number of threads to create [Default: DEFAULT_THREAD_COUNT]
+        logger (orgcrawler.logger.Logger): a logger instance [Default: get_logger()]
+    """
     message = {
         'FILE': __file__.split('/')[-1],
         'METHOD': inspect.stack()[0][3],
