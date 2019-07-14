@@ -3,7 +3,7 @@ import time
 
 from botocore.exceptions import ClientError
 
-from orgcrawler import utils
+from orgcrawler import utils, logger
 
 
 DEFAULT_REGION = 'us-east-1'
@@ -117,7 +117,7 @@ class Crawler(object):
                 response.payload_output = execution.payload(region, account, *args, **kwargs)
             except Exception:
                 response.exc_info = sys.exc_info()
-                execution.errors = True
+                execution.errors += 1
             response.timer.stop()
             execution.responses.append(response)
 
@@ -135,9 +135,9 @@ class Crawler(object):
             thread_count=thread_count,
         )
         execution.timer.stop()
-        if execution.errors:
-            execution.handle_errors()
         self.executions.append(execution)
+        if execution.errors > 0:
+            execution.handle_errors()
         return execution
 
     def get_execution(self, name):
@@ -172,8 +172,10 @@ class CrawlerExecution(object):
     def __init__(self, payload):
         self.payload = payload
         self.name = payload.__name__
+        self.logger = logger.Logger()
         self.responses = []
-        self.errors = None
+        self.errors = 0
+        self.errmsg = None
         self.timer = CrawlerTimer()
 
     def dump(self):
@@ -185,16 +187,17 @@ class CrawlerExecution(object):
         )
 
     def handle_errors(self):
-        errors = [response for response in self.responses if response.exc_info]
-        exc_info = errors.pop().exc_info
-        errmsg = (
+        exc_info = next(
+            (response for response in self.responses if response.exc_info)
+        ).exc_info
+        self.errmsg = (
             'OrgCrawler.execute encountered {} errors while running "{}". '
             'Example:\n'.format(
-                len(errors),
+                self.errors,
                 self.name,
             )
         )
-        print(errmsg, file=sys.stderr)
+        self.logger.error(self.errmsg)
         sys.excepthook(*exc_info)
         sys.exit()
 
