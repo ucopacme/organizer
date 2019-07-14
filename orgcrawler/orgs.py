@@ -181,8 +181,8 @@ class Org(object):
                 e.response['Error']['Code'],
             )
             sys.exit(errmsg)
-        # see https://github.com/boto/botocore/issues/619
         client_config = botocore.config.Config(
+            # see https://github.com/boto/botocore/issues/619
             # the default is 10
             max_pool_connections=10
         )
@@ -276,8 +276,6 @@ class Org(object):
             accounts,
             make_org_account_object,
             func_args=(self,),
-            #thread_count=len(accounts),
-            #thread_count=4,
             logger=self.logger,
         )
         if self._exc_info:   # pragma: no cover
@@ -353,7 +351,6 @@ class Org(object):
             policies,
             make_org_policy_object,
             func_args=(self,),
-            #thread_count=len(policies),
             logger=self.logger,
         )
         if self._exc_info:   # pragma: no cover
@@ -766,35 +763,3 @@ class OrgPolicy(OrgObject):
                 PolicyId=self.id,
             )
         )
-
-
-'''
-Connection pool is full, discarding connection #619
-https://github.com/boto/botocore/issues/619
-
-{"time_stamp": "2019-07-08 16:42:27,480", "log_level": "WARNING", "log_message": Connection pool is full, discarding connection: organizations.us-east-1.amazonaws.com}
-
-{"time_stamp": "2019-07-08 16:42:27,482", "log_level": "WARNING", "log_message": Connection pool is full, discarding connection: organizations.us-east-1.amazonaws.com}
-
-{"time_stamp": "2019-07-08 16:42:27,482", "log_level": "WARNING", "log_message": Connection pool is full, discarding connection: organizations.us-east-1.amazonaws.com}
-
-
-This one can happen if the number of threads that create a http connection is higher than the default connection pool size of botocore. which is 10.
-
----
-
-This warning is fine. If you dig into the urllib3 connection pool code, it's basically the pool of persistent connections and not the maximum number of concurrent connections you can have. The connections in the pool are re-used if they haven't been closed by the endpoint.
-
-If you'd like to boost the size of this pool, it can be done per-endpoint using the low-level botocore config. boto3 example:
-
-import boto3
-import botocore
-
-client_config = botocore.config.Config(
-    max_pool_connections=25,
-)
-boto3.client('lambda', config=client_config)
-Botocore Config Documentation:
-https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html
-
-'''

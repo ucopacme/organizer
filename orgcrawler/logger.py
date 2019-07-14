@@ -41,8 +41,7 @@ class Logger(object):
         except Exception:
             pass
         try:
-            #return json.dumps(message, indent=4, cls=DateTimeEncoder)
-            return json.dumps(message, cls=DateTimeEncoder)
+            return json.dumps(message, indent=4, cls=DateTimeEncoder)
         except Exception:
             return json.dumps(str(message))
 
