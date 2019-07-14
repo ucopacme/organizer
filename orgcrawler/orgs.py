@@ -183,7 +183,8 @@ class Org(object):
             sys.exit(errmsg)
         # see https://github.com/boto/botocore/issues/619
         client_config = botocore.config.Config(
-            max_pool_connections=utils.DEFAULT_THREAD_COUNT
+            # the default is 10
+            max_pool_connections=10
         )
         return boto3.client('organizations', config=client_config, **credentials)
 

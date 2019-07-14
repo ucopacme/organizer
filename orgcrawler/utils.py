@@ -18,7 +18,7 @@ from orgcrawler.logger import Logger
 
 
 DEFAULT_LOGLEVEL = 'warning'
-DEFAULT_THREAD_COUNT = 20
+DEFAULT_THREAD_COUNT = 6
 
 
 def get_logger(log_level=DEFAULT_LOGLEVEL):

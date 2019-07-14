@@ -7,13 +7,15 @@ from botocore.exceptions import ClientError
 from orgcrawler import orgs, crawlers, utils
 from orgcrawler.cli.utils import setup_crawler
 
-#cycles = 2
+#cycles = 5
 cycles = 100 
 errors = 0
 role = sys.argv[1]
 timer = crawlers.CrawlerTimer()
 cycle_timer = crawlers.CrawlerTimer()
 master_account_id = utils.get_master_account_id(role)
+longest_time = 0
+shortest_time = None
 
 timer.start()
 for i in range(cycles):
@@ -28,11 +30,18 @@ for i in range(cycles):
     org = None 
     cycle_timer.stop()
     print('cycle: {}\ttime: {}'.format(i, cycle_timer.elapsed_time))
+    if longest_time < cycle_timer.elapsed_time:
+        longest_time = cycle_timer.elapsed_time
+    if shortest_time is None or shortest_time > cycle_timer.elapsed_time:
+        shortest_time = cycle_timer.elapsed_time
 timer.stop()
 
 print('cycles:', cycles)
 print('errors:', errors)
-print('elapsed time:', timer.elapsed_time)
-print('average time:', timer.elapsed_time / cycles)
+print('warnings: ')
+print('elapsed time:', round(timer.elapsed_time, 2))
+print('average time:', round(timer.elapsed_time/cycles, 2))
+print('longest time:', round(longest_time, 2))
+print('shortest time:', round(shortest_time, 2))
 
 
