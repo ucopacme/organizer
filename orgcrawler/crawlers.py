@@ -3,7 +3,7 @@ import time
 
 from botocore.exceptions import ClientError
 
-from orgcrawler import utils, logger
+from orgcrawler import utils
 
 
 DEFAULT_REGION = 'us-east-1'
@@ -172,7 +172,6 @@ class CrawlerExecution(object):
     def __init__(self, payload):
         self.payload = payload
         self.name = payload.__name__
-        self.logger = logger.Logger()
         self.responses = []
         self.errors = 0
         self.errmsg = None
@@ -191,13 +190,13 @@ class CrawlerExecution(object):
             (response for response in self.responses if response.exc_info)
         ).exc_info
         self.errmsg = (
-            'OrgCrawler.execute encountered {} errors while running "{}". '
-            'Example:\n'.format(
+            'OrgCrawler.execute encountered {} exceptions while running payload function "{}". '
+            '\n\nExample traceback:'.format(
                 self.errors,
                 self.name,
             )
         )
-        self.logger.error(self.errmsg)
+        print(self.errmsg, file=sys.stderr)
         sys.excepthook(*exc_info)
         sys.exit()
 

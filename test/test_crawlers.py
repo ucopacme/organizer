@@ -9,7 +9,7 @@ from moto import (
     mock_s3,
 )
 
-from orgcrawler import crawlers, orgs, utils, logger
+from orgcrawler import crawlers, orgs, utils
 from orgcrawler.mock.org import (
     MockOrganization,
     ORG_ACCESS_ROLE,
@@ -58,7 +58,6 @@ def test_crawler_execution_init():
     assert execution.name == 'get_mock_account_alias'
     assert execution.responses == []
     assert isinstance(execution.timer, crawlers.CrawlerTimer)
-    assert isinstance(execution.logger, logger.Logger)
     assert isinstance(execution.dump(), dict)
 
 
