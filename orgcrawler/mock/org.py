@@ -174,3 +174,34 @@ class MockOrganization(object):
             for policy_name in account['policies']:
                 self._policy_gen(policy_name, account_id)
         return
+
+
+    def _get_spec_by_ou_name(self, ou_name, spec=None):
+        '''
+        travers spec and return that portion of spec corresponding to 'ou_name'
+        '''
+        found_spec = None
+        if spec is None:
+            spec = self.spec['root']
+        for ou in spec:
+            if 'child_ou' in ou:
+                found_spec =  self._get_spec_by_ou_name(ou_name, ou['child_ou'])
+            if ou['name'] == ou_name:
+                found_spec = ou
+            return found_spec
+
+    def list_accounts(self, ou_name='root', spec=None):
+        '''
+        travers spec to assemble a list of accounts relative to ou_name
+        '''
+        account_list = []
+        if ou_name == 'root':
+            account_list.append('master')
+        spec = self._get_spec_by_ou_name(ou_name)
+        if 'child_ou' in spec:
+            for ou in spec['child_ou']:
+                account_list += self.list_accounts(ou)
+        if 'accounts' in spec:
+            account_list += spec['accounts']
+        return account_list
+
