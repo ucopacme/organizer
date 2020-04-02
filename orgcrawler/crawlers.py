@@ -46,8 +46,11 @@ class Crawler(object):
                 self.accounts = [self.accounts]
             self.accounts = [
                 self.org.get_account(a) for a in self.accounts
-                if self.is_valid_account(a) and self.is_active_account(a)
+                if self.is_valid_account(a)
             ]
+        self.accounts = [a for a in self.accounts if self.is_active_account(a)]
+
+
 
     def validate_regions(self):
         if self.regions == 'GLOBAL':

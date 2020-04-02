@@ -71,20 +71,6 @@ def test_account_gen():
     response = mock_org.client.list_accounts_for_parent(ParentId=mock_org.root_id)
     assert [a for a in response['Accounts'] if a['Name'] == account['name']]
 
-
-@mock_sts
-@mock_organizations
-def test_get_spec_by_ou_name():
-    mock_org = MockOrganization()
-    mock_org._load_org(SIMPLE_ORG_SPEC)
-    spec_by_ou_name = mock_org._get_spec_by_ou_name('root')
-    assert spec_by_ou_name == mock_org.spec['root'][0]
-    spec_by_ou_name = mock_org._get_spec_by_ou_name('ou01')
-    assert spec_by_ou_name == mock_org.spec['root'][0]['child_ou'][0]
-    spec_by_ou_name = mock_org._get_spec_by_ou_name('blee')
-    assert spec_by_ou_name is None
-
-
 @mock_sts
 @mock_organizations
 def test_simple_build():
@@ -112,11 +98,3 @@ def test_complex_build():
     assert len(mock_org.client.list_organizational_units_for_parent(
         ParentId=mock_org.root_id
     )['OrganizationalUnits']) == 2
-
-@mock_sts
-@mock_organizations
-def test_list_accounts():
-    mock_org = MockOrganization()
-    mock_org.simple()
-    account_list = mock_org.list_accounts()
-    assert sorted(account_list) == ['account01', 'account02', 'account03', 'master']

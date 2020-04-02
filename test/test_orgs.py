@@ -240,11 +240,12 @@ def test_dump_accounts():
     response = org.dump_accounts()
     assert isinstance(response, list)
     assert len(response) == len(org.accounts)
-    mock_accounts = mock_org.spec['root'][0]['accounts']
+    mock_accounts = [a['name'] for a in mock_org.spec['root'][0]['accounts']]
+    mock_accounts.append('master')
     for account in response:
         assert account['master_account_id'] == MASTER_ACCOUNT_ID
         assert account['organization_id'] == org.id
-        assert account['name'] in [a['name'] for a in mock_accounts]
+        assert account['name'] in mock_accounts
         assert re.compile(r'[0-9]{12}').match(account['id'])
         assert account['parent_id'] == org.root_id
         assert account['email'] == account['name'] + '@example.com'
@@ -260,10 +261,11 @@ def test_list_accounts_by_name_or_id():
     mock_org.simple()
     org = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
     org.load()
-    mock_accounts = mock_org.spec['root'][0]['accounts']
+    mock_accounts = [a['name'] for a in mock_org.spec['root'][0]['accounts']]
+    mock_accounts.append('master')
     response = org.list_accounts_by_name()
     assert isinstance(response, list)
-    assert sorted(response) == [a['name'] for a in mock_accounts]
+    assert sorted(response) == sorted(mock_accounts)
     response = org.list_accounts_by_id()
     assert isinstance(response, list)
     for account_id in response:
@@ -502,7 +504,8 @@ def test_list_policies_by_id():
     response = org.list_policies_by_id()
     assert len(response) == len(org.policies)
     for policy_id in response:
-        assert re.compile(r'p-[a-z0-9]{8}').match(policy_id)
+        assert (re.compile(r'p-[a-z0-9]{8}').match(policy_id)
+                or policy_id == 'p-FullAWSAccess')
     org.clear_cache()
 
 
@@ -621,15 +624,19 @@ def test_get_policies_for_target():
     org = orgs.Org(MASTER_ACCOUNT_ID, ORG_ACCESS_ROLE)
     org.load()
     policies = org.get_policies_for_target('account04')
-    assert len(policies) == 4
+    assert sorted([p.name for p in policies]) == [
+            'FullAWSAccess', 'policy01', 'policy03', 'policy04']
     for policy in policies:
         assert isinstance(policy, orgs.OrgPolicy)
     policies = org.get_policies_for_target('ou01-2')
-    assert len(policies) == 3
+    assert sorted([p.name for p in policies]) == [
+            'FullAWSAccess', 'policy01', 'policy05', 'policy06']
     for policy in policies:
         assert isinstance(policy, orgs.OrgPolicy)
     policies = org.get_policies_for_target('ou01')
-    assert policies is None
+    assert [p.name for p in policies] == ['FullAWSAccess']
+    for policy in policies:
+        assert isinstance(policy, orgs.OrgPolicy)
     org.clear_cache()
 
 
@@ -643,18 +650,14 @@ def test_get_accounts_for_policy_recursive():
     assert len(accounts_for_policy) == 14
     assert sorted([a.name for a in accounts_for_policy]) == sorted([a.name for a in org.accounts])
     accounts_for_policy = org.get_accounts_for_policy_recursive('policy02')
-    assert len(accounts_for_policy) == 13
+    assert len(accounts_for_policy) == 14
     accounts_for_policy = org.get_accounts_for_policy_recursive('policy03')
-    assert len(accounts_for_policy) == 2 
     assert sorted([a.name for a in accounts_for_policy]) == ['account04', 'account13']
     accounts_for_policy = org.get_accounts_for_policy_recursive('policy04')
-    assert len(accounts_for_policy) == 2 
     assert sorted([a.name for a in accounts_for_policy]) == ['account04', 'account13']
     accounts_for_policy = org.get_accounts_for_policy_recursive('policy05')
-    assert len(accounts_for_policy) == 3 
     assert sorted([a.name for a in accounts_for_policy]) == ['account07', 'account09', 'account10']
     accounts_for_policy = org.get_accounts_for_policy_recursive('policy06')
-    assert len(accounts_for_policy) == 3 
     assert sorted([a.name for a in accounts_for_policy]) == ['account07', 'account09', 'account10']
     assert org.get_accounts_for_policy_recursive('Blee') is None
     org.clear_cache()
