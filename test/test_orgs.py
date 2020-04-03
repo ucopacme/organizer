@@ -637,6 +637,8 @@ def test_get_policies_for_target():
     assert [p.name for p in policies] == ['FullAWSAccess']
     for policy in policies:
         assert isinstance(policy, orgs.OrgPolicy)
+    policies = org.get_policies_for_target('blee')
+    assert policies is None
     org.clear_cache()
 
 

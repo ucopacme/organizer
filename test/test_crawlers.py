@@ -141,14 +141,12 @@ def test_crawler_init():
         name='inactive-account',
         id='992233445566',
         email='inactive-account@example.org',
-        status='ACTIVE',
-        #status='SUSPENDED',
+        status='SUSPENDED',
     )
     org.accounts.append(account)
-    print([a.name for a in org.accounts])
     crawler = crawlers.Crawler(org)
-    print([a.name for a in crawler.accounts])
-    assert False
+    assert 'inactive-account' in [a.name for a in org.accounts]
+    assert 'inactive-account' not in [a.name for a in crawler.accounts]
 
 @mock_sts
 @mock_organizations
